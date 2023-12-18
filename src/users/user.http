@@ -1,0 +1,27 @@
+@server = http://localhost:3000
+
+### create 1 유저 생성
+POST {{server}}/users/
+Content-Type: application/json
+
+{
+    "name": "정인환",
+    "email": "balt11@naver.com",
+    "password": "PASSWORD"
+}
+
+### 이메일 인증
+POST {{server}}/users/email-verify?signupVerifyToken=test_token
+
+### 로그인
+POST {{server}}/users
+Content-Type: application/json
+
+{
+    "email": "balt11@naver.com",
+    "password": "PASSWORD"
+}
+
+
+### 회원 조회
+GET {{server}}/users/balt11@naver.com
