@@ -1,19 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { EmailService } from 'src/email/email.service';
 import * as uuid from 'uuid';
 import { UserInfo } from './userInfo';
+import { InjectRepository } from '@nestjs/typeorm';
+import { UserEntity } from './entity/user.entity';
+import { DataSource, Repository } from 'typeorm';
+import { ulid } from 'ulid';
 
 @Injectable()
 export class UsersService {
-  constructor(private emailService: EmailService) {}
+  constructor(
+    private emailService: EmailService,
+    @InjectRepository(UserEntity)
+    private usersRepository: Repository<UserEntity>,
+    private dataSource: DataSource,
+  ) {}
 
   async createUser(name: string, email: string, password: string) {
     await this.checkUserExists(email);
 
     const signupVerifyToken = uuid.v1();
 
-    await this.saveUser(name, email, password, signupVerifyToken);
-    //await this.sendMemberJoinEmail(email, signupVerifyToken);
+    // await this.saveUser(name, email, password, signupVerifyToken);
+    await this.saveUserUsingTransation(
+      name,
+      email,
+      password,
+      signupVerifyToken,
+    );
+    await this.sendMemberJoinEmail(email, signupVerifyToken);
   }
 
   private async checkUserExists(email: string) {
@@ -26,7 +41,34 @@ export class UsersService {
     password: string,
     signupVerifyToken: string,
   ) {
+    const user = new UserEntity();
+    user.id = ulid();
+    user.name = name;
+    user.email = email;
+    user.password = password;
+    user.signupVerifyToken = signupVerifyToken;
+    await this.usersRepository.save(user);
     return;
+  }
+
+  private async saveUserUsingTransation(
+    name: string,
+    email: string,
+    password: string,
+    signupVerifyToken: string,
+  ) {
+    await this.dataSource.transaction(async (manager) => {
+      const user = new UserEntity();
+      user.id = ulid();
+      user.name = name;
+      user.email = email;
+      user.password = password;
+      user.signupVerifyToken = signupVerifyToken;
+
+      await manager.save(user);
+
+      // throw new InternalServerErrorException();
+    });
   }
 
   private async sendMemberJoinEmail(email: string, signupVerifyToken: string) {
